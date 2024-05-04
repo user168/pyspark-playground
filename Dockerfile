@@ -1,6 +1,7 @@
 FROM python:3.10-bullseye as spark-base
 
-ARG SPARK_VERSION=3.3.3
+ARG SPARK_VERSION=3.5.1
+ARG DELTA_VERSION=3.1.0
 
 # Install tools required by the OS
 RUN apt-get update && \
@@ -26,9 +27,12 @@ RUN mkdir -p ${HADOOP_HOME} && mkdir -p ${SPARK_HOME}
 WORKDIR ${SPARK_HOME}
 
 # Download and install Spark
-RUN curl https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.tgz -o spark-${SPARK_VERSION}-bin-hadoop3.tgz \
- && tar xvzf spark-${SPARK_VERSION}-bin-hadoop3.tgz --directory /opt/spark --strip-components 1 \
- && rm -rf spark-${SPARK_VERSION}-bin-hadoop3.tgz
+RUN curl https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.tgz -o spark.tgz && \
+tar -xf  spark.tgz  && \
+mkdir -p /opt/spark && \
+mv ./spark-${SPARK_VERSION}-bin-hadoop3/* /opt/spark && \
+rm -rf spark.tgz && \
+rm -rf spark-${SPARK_VERSION}-bin-hadoop3
 
 
 FROM spark-base as pyspark
@@ -51,6 +55,16 @@ RUN chmod u+x /opt/spark/sbin/* && \
     chmod u+x /opt/spark/bin/*
 
 ENV PYTHONPATH=$SPARK_HOME/python/:$PYTHONPATH
+
+RUN wget https://repo1.maven.org/maven2/io/delta/delta-spark_2.12/3.1.0/delta-spark_2.12-3.1.0.jar && \
+    mv delta-spark_2.12-3.1.0.jar /opt/spark/jars/
+RUN wget https://repo1.maven.org/maven2/io/delta/delta-storage/3.1.0/delta-storage-3.1.0.jar && \
+    mv delta-storage-3.1.0.jar /opt/spark/jars/
+RUN wget https://repo1.maven.org/maven2/io/delta/delta-standalone_2.12/3.1.0/delta-standalone_2.12-3.1.0.jar && \
+    mv delta-standalone_2.12-3.1.0.jar /opt/spark/jars/
+    
+RUN export PACKAGES="io.delta:delta-spark_2.12-3.1.0"
+RUN export PYSPARK_SUBMIT_ARGS="--packages ${PACKAGES} pyspark-shell"
 
 # Copy appropriate entrypoint script
 COPY entrypoint.sh .
