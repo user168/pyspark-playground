@@ -1,5 +1,6 @@
 .idea
 .DS_Store
+.venv
 book_data/results
 book_data/current
 book_data/broadcast_logs/ReferenceTables
